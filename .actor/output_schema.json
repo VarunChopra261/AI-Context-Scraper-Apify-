@@ -1,0 +1,13 @@
+﻿{
+  "actorOutputSchemaVersion": 1,
+  "title": "AI Context Scraper Output",
+  "description": "Actor writes structured context records to the default dataset.",
+  "properties": {
+    "results": {
+      "type": "string",
+      "title": "Results",
+      "description": "Structured context records stored in the default dataset.",
+      "template": "{{links.apiDefaultDatasetUrl}}/items"
+    }
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "title": "AI Context Scraper",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "task": {
+      "type": "string",
+      "title": "Coding task description",
+      "description": "Describe the coding problem or implementation goal for which context should be gathered.",
+      "editor": "textfield"
+    },
+    "max_sources": {
+      "type": "integer",
+      "title": "Maximum sources",
+      "description": "Maximum number of sources to discover and process.",
+      "editor": "number",
+      "default": 10
+    },
+    "allowed_domains": {
+      "type": "array",
+      "title": "Allowed domains",
+      "description": "Optional allowlist of domains to restrict search and crawling.",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      }
+    },
+    "include_github": {
+      "type": "boolean",
+      "title": "Include GitHub",
+      "description": "Include GitHub repository mining in the context pipeline.",
+      "editor": "checkbox",
+      "default": true
+    },
+    "include_github_code_search": {
+      "type": "boolean",
+      "title": "Include GitHub code search",
+      "description": "Enable GitHub code search to retrieve implementation snippets.",
+      "editor": "checkbox",
+      "default": true
+    },
+    "github_token": {
+      "type": "string",
+      "title": "GitHub token (optional)",
+      "description": "Optional GitHub token for authenticated GitHub API requests and richer code search. If omitted, actor falls back to unauthenticated mining.",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "github_code_languages": {
+      "type": "array",
+      "title": "Languages for GitHub code search",
+      "description": "Target languages for GitHub code search (e.g., ['python', 'typescript']). If empty, uses detected language from task.",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "include_stackoverflow": {
+      "type": "boolean",
+      "title": "Include StackOverflow Q&A",
+      "description": "Mine high-quality answers from StackOverflow for developer context",
+      "editor": "checkbox",
+      "default": true
+    },
+    "enable_cache": {
+      "type": "boolean",
+      "title": "Enable caching",
+      "description": "Cache scraped pages and task results for faster repeated runs",
+      "editor": "checkbox",
+      "default": true
+    },
+    "chunk_size": {
+      "type": "integer",
+      "title": "LLM chunk token size",
+      "description": "Maximum tokens per chunk for LLM-optimized content splitting",
+      "editor": "number",
+      "default": 500,
+      "minimum": 100,
+      "maximum": 2000
+    },
+    "max_code_snippets": {
+      "type": "integer",
+      "title": "Maximum code snippets",
+      "description": "Maximum number of code snippets to include in the output.",
+      "editor": "number",
+      "default": 20
+    },
+    "enable_llm_synthesis": {
+      "type": "boolean",
+      "title": "Enable LLM RAG synthesis",
+      "description": "Enable LLM-powered synthesis of gathered context into actionable coding guidance using OpenRouter.",
+      "editor": "checkbox",
+      "default": true
+    },
+    "openrouter_api_key": {
+      "type": "string",
+      "title": "OpenRouter API key",
+      "description": "API key for OpenRouter LLM synthesis. Can also be set via OPENROUTER_API_KEY environment variable.",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "openrouter_model": {
+      "type": "string",
+      "title": "OpenRouter model",
+      "description": "Model ID to use for LLM synthesis via OpenRouter.",
+      "editor": "textfield",
+      "default": "arcee-ai/trinity-large-preview:free"
+    }
+  },
+  "required": [
+    "task"
+  ]
+}

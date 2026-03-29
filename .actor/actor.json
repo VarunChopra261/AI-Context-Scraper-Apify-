@@ -1,0 +1,13 @@
+{
+  "actorSpecification": 1,
+  "name": "ai-context-scraper",
+  "title": "AI Context Scraper",
+  "description": "Production-grade AI context compiler that discovers, crawls, filters, and structures coding context for LLM agents.",
+  "version": "0.1",
+  "meta": {
+    "templateId": "python-start"
+  },
+  "input": "./input_schema.json",
+  "output": "./output_schema.json",
+  "dockerfile": "../Dockerfile"
+}

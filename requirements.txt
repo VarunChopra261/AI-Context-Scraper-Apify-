@@ -1,0 +1,12 @@
+apify>=1.7.0
+httpx>=0.27.0
+beautifulsoup4>=4.12.0
+readability-lxml>=0.8.1
+ddgs>=9.12.0
+markdownify>=0.13.0
+tqdm>=4.66.0
+sentence-transformers>=3.0.0
+numpy>=1.26.0
+tiktoken>=0.7.0
+pydantic>=2.7.0
+rapidfuzz>=3.9.0

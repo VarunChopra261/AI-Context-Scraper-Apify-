@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Testing / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+
+# Apify local storage
+apify_storage/
+storage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary test outputs
+test_output.json
+test_output_utf8.json
+test_fail_output.txt
+test_unit_output.txt
+test_live_output.txt
+results.json
+build_0.1.7_results.json
+integration_test.log
+
+# Temp actor inputs
+.actor/tmp_input.json

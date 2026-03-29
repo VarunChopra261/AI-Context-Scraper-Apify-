@@ -1,0 +1,7 @@
+{
+  "task": "Create a Python function to parse JSON safely",
+  "max_sources": 10,
+  "include_github": true,
+  "include_github_code_search": false,
+  "max_code_snippets": 8
+}
