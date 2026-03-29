@@ -105,7 +105,7 @@
       "title": "OpenRouter model",
       "description": "Model ID to use for LLM synthesis via OpenRouter.",
       "editor": "textfield",
-      "default": "arcee-ai/trinity-large-preview:free"
+      "default": "nvidia/nemotron-3-super-120b-a12b:free"
     }
   },
   "required": [

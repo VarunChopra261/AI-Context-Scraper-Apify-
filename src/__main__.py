@@ -24,7 +24,7 @@ class ActorInput(BaseModel):
     chunk_size: int = Field(default=500, ge=100, le=2000)
     enable_llm_synthesis: bool = Field(default=True, description="Enable LLM-powered RAG synthesis")
     openrouter_api_key: str | None = Field(default=None, description="OpenRouter API key for LLM synthesis")
-    openrouter_model: str = Field(default="arcee-ai/trinity-large-preview:free", description="OpenRouter model ID")
+    openrouter_model: str = Field(default="nvidia/nemotron-3-super-120b-a12b:free", description="OpenRouter model ID")
 
 
 async def main() -> None:

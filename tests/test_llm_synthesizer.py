@@ -21,7 +21,7 @@ def synthesizer(logger):
     return LLMSynthesizer(
         logger=logger,
         api_key="sk-or-v1-test-key",
-        model="arcee-ai/trinity-large-preview:free",
+        model="nvidia/nemotron-3-super-120b-a12b:free",
         timeout=10.0,
         max_retries=1,
     )
@@ -318,7 +318,7 @@ class TestSynthesizeErrorHandling:
                         "finish_reason": "stop",
                     }
                 ],
-                "model": "arcee-ai/trinity-large-preview:free",
+                "model": "nvidia/nemotron-3-super-120b-a12b:free",
                 "usage": {
                     "prompt_tokens": 500,
                     "completion_tokens": 200,
@@ -362,7 +362,7 @@ class TestEdgeCases:
     def test_synthesizer_creation_with_defaults(self, logger):
         """Test creating synthesizer with default params."""
         s = LLMSynthesizer(logger=logger, api_key="test-key")
-        assert s._model == "arcee-ai/trinity-large-preview:free"
+        assert s._model == "nvidia/nemotron-3-super-120b-a12b:free"
         assert s._timeout == 60.0
         assert s._max_retries == 2
 

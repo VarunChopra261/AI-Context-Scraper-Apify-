@@ -8,7 +8,7 @@ from typing import Any
 
 import httpx
 
-DEFAULT_MODEL = "arcee-ai/trinity-large-preview:free"
+DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 MAX_CONTEXT_CHARS = 48_000  # Stay well within typical context windows
 
