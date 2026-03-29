@@ -1,0 +1,5 @@
+{
+  "task": "Build a Python FastAPI endpoint for file upload to S3",
+  "max_sources": 5,
+  "enable_llm_synthesis": true
+}
