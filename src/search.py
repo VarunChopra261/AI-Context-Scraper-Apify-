@@ -82,7 +82,7 @@ class QueryExpander:
             "concepts": concepts[:20],
         }
 
-    def expand(self, task: str, signals: dict[str, list[str]], limit: int = 12) -> list[str]:
+    def expand(self, task: str, signals: dict[str, list[str]], limit: int = 6) -> list[str]:
         base_queries = [task.strip()]
 
         core_terms = signals.get("libraries", [])[:3] + signals.get("concepts", [])[:4]

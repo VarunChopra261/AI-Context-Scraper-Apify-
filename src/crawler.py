@@ -18,13 +18,17 @@ class CrawledPage:
     fetched_at: float
 
 
+# Maximum response body size in bytes — skip oversized pages to save RAM.
+_MAX_CONTENT_BYTES = 200_000
+
+
 class AsyncCrawler:
     def __init__(
         self,
         logger,
-        timeout: float = 15.0,
+        timeout: float = 10.0,
         max_concurrency: int = 8,
-        retries: int = 2,
+        retries: int = 1,
         requests_per_second: float = 3.0,
     ) -> None:
         self._logger = logger
@@ -88,11 +92,20 @@ class AsyncCrawler:
                         self._logger.warning("Skipping non-text response", extra={"url": url, "content_type": content_type})
                         return None
 
+                    # Skip oversized responses to prevent RAM spikes
+                    body = response.text
+                    if len(body) > _MAX_CONTENT_BYTES:
+                        self._logger.warning(
+                            "Skipping oversized response",
+                            extra={"url": url, "size": len(body)},
+                        )
+                        return None
+
                     return CrawledPage(
                         url=url,
                         status_code=response.status_code,
                         content_type=content_type,
-                        text=response.text,
+                        text=body,
                         fetched_at=monotonic(),
                     )
                 except Exception as exc:  # noqa: BLE001

@@ -85,8 +85,8 @@ class RelevanceRanker:
             return self._lexical_score(query, text)
 
         try:
-            query_embedding = model.encode([query], convert_to_numpy=True)[0]
-            text_embedding = model.encode([text[:3000]], convert_to_numpy=True)[0]
+            query_embedding = model.encode([query], convert_to_numpy=True, batch_size=64)[0]
+            text_embedding = model.encode([text[:1500]], convert_to_numpy=True, batch_size=64)[0]
             return self._cosine_similarity(query_embedding, text_embedding)
         except Exception as exc:  # noqa: BLE001
             self._logger.warning("Embedding failed, using lexical fallback", extra={"error": str(exc)})
@@ -98,12 +98,12 @@ class RelevanceRanker:
 
         model = self._get_model()
         if model is None:
-            scored = [ScoredChunk(chunk=chunk, score=self._lexical_score(task, chunk.text[:2000])) for chunk in chunks]
+            scored = [ScoredChunk(chunk=chunk, score=self._lexical_score(task, chunk.text[:1500])) for chunk in chunks]
             return sorted(scored, key=lambda x: x.score, reverse=True)[:top_k]
 
-        texts = [chunk.text[:4000] for chunk in chunks]
-        task_embedding = model.encode([task], convert_to_numpy=True)[0]
-        content_embeddings = model.encode(texts, convert_to_numpy=True)
+        texts = [chunk.text[:2000] for chunk in chunks]
+        task_embedding = model.encode([task], convert_to_numpy=True, batch_size=64)[0]
+        content_embeddings = model.encode(texts, convert_to_numpy=True, batch_size=64)
 
         scored = [
             ScoredChunk(chunk=chunk, score=self._cosine_similarity(task_embedding, embedding))
@@ -118,13 +118,13 @@ class RelevanceRanker:
 
         model = self._get_model()
         if model is None:
-            scored = [ScoredSnippet(snippet=s, score=self._lexical_score(task, s.code[:1200])) for s in snippets]
+            scored = [ScoredSnippet(snippet=s, score=self._lexical_score(task, s.code[:1000])) for s in snippets]
             scored.sort(key=lambda item: item.score, reverse=True)
             return scored[:top_k]
 
-        texts = [f"{s.description}\n{s.code[:2500]}" for s in snippets]
-        task_embedding = model.encode([task], convert_to_numpy=True)[0]
-        snippet_embeddings = model.encode(texts, convert_to_numpy=True)
+        texts = [f"{s.description}\n{s.code[:1500]}" for s in snippets]
+        task_embedding = model.encode([task], convert_to_numpy=True, batch_size=64)[0]
+        snippet_embeddings = model.encode(texts, convert_to_numpy=True, batch_size=64)
 
         scored = []
         for snippet, embedding in zip(snippets, snippet_embeddings, strict=False):
