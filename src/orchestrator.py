@@ -19,7 +19,7 @@ from .github_miner import GitHubMiner
 from .llm_synthesizer import LLMSynthesizer
 from .metrics import MetricsCollector
 from .pattern_detector import PatternDetector
-from .relevance import RelevanceRanker
+from .relevance import BucketizedContext, RelevanceRanker
 from .search import QueryExpander, SearchClient
 from .stackoverflow_miner import StackOverflowMiner
 
@@ -34,7 +34,7 @@ class ContextOrchestrator:
         chunk_size: int = 500,
         enable_llm_synthesis: bool = True,
         openrouter_api_key: str | None = None,
-        openrouter_model: str = "arcee-ai/trinity-large-preview:free",
+        openrouter_model: str = "nvidia/nemotron-3-super-120b-a12b:free",
     ) -> None:
         self._logger = logger
         self._expander = QueryExpander()
@@ -132,6 +132,27 @@ class ContextOrchestrator:
         phrase_bonus = 0.25 if task.lower() in lowered else 0.0
         return min(1.0, coverage + phrase_bonus)
 
+    def _score_items(
+        self,
+        items,
+        task: str,
+        allowed_domains: list[str],
+        min_relevance: float,
+    ) -> list[tuple[str, float]]:
+        """Score a list of search/GitHub items by combined semantic + term relevance."""
+        scored: list[tuple[str, float]] = []
+        for item in items:
+            if not self._allowed(item.url, allowed_domains):
+                continue
+            combined_text = f"{item.title} {item.snippet}"
+            sem_score = self._ranker.compute_semantic_similarity(task, combined_text)
+            term_score = self._text_relevance(task, combined_text)
+            relevance_score = max(sem_score, term_score)
+            if relevance_score < min_relevance:
+                continue
+            scored.append((item.url, item.score + self._url_rank(item.url) + (2.5 * relevance_score)))
+        return scored
+
     def _collect_urls(
         self,
         task: str,
@@ -140,30 +161,8 @@ class ContextOrchestrator:
         max_sources: int,
         allowed_domains: list[str],
     ) -> list[str]:
-        scored: list[tuple[str, float]] = []
-
-        # Hybrid approach: semantic + term-based scoring
-        # Embeddings on short snippets may miss relevant results, so we use both signals
-        for item in search_results:
-            if self._allowed(item.url, allowed_domains):
-                combined_text = f"{item.title} {item.snippet}"
-                sem_score = self._ranker.compute_semantic_similarity(task, combined_text)
-                term_score = self._text_relevance(task, combined_text)
-                # Use the maximum of semantic and term scores, apply gentle threshold
-                relevance_score = max(sem_score, term_score)
-                if relevance_score < 0.18:
-                    continue
-                scored.append((item.url, item.score + self._url_rank(item.url) + (2.5 * relevance_score)))
-
-        for item in github_results:
-            if self._allowed(item.url, allowed_domains):
-                combined_text = f"{item.title} {item.snippet}"
-                sem_score = self._ranker.compute_semantic_similarity(task, combined_text)
-                term_score = self._text_relevance(task, combined_text)
-                relevance_score = max(sem_score, term_score)
-                if relevance_score < 0.16:
-                    continue
-                scored.append((item.url, item.score + self._url_rank(item.url) + (2.5 * relevance_score)))
+        scored = self._score_items(search_results, task, allowed_domains, min_relevance=0.18)
+        scored += self._score_items(github_results, task, allowed_domains, min_relevance=0.16)
 
         dedup: dict[str, float] = {}
         for url, score in scored:
@@ -187,6 +186,165 @@ class ContextOrchestrator:
                 break
 
         return selected
+
+    def _extract_and_rank(
+        self,
+        task: str,
+        pages,
+        max_code_snippets: int,
+        stackoverflow_answers: list,
+    ) -> tuple[list[ExtractedDoc], BucketizedContext, list, list]:
+        """Extract, deduplicate, rank, and bucketize content from crawled pages.
+
+        Returns (docs, bucketized, patterns, stackoverflow_answers).
+        """
+        self._metrics.start_phase("extraction")
+        docs: list[ExtractedDoc] = []
+        snippets: list[ExtractedSnippet] = []
+        chunks = []
+        spam_count = 0
+
+        for page in pages:
+            doc = self._extractor.extract(page)
+            if doc is None:
+                continue
+            if self._is_seo_spam(f"{doc.title} {doc.summary}"):
+                spam_count += 1
+                continue
+            docs.append(doc)
+            snippets.extend(doc.snippets)
+            chunks.extend(self._chunker.chunk_text(text=doc.clean_markdown, source=doc.source))
+
+        self._metrics.record("documents_extracted", len(docs))
+        self._metrics.record("documents_filtered_spam", spam_count)
+        self._metrics.record("code_snippets_extracted", len(snippets))
+        self._metrics.record("chunks_created", len(chunks))
+        self._metrics.end_phase("extraction")
+
+        self._logger.info(
+            "Extraction complete",
+            extra={
+                "documents": len(docs),
+                "code_snippets": len(snippets),
+                "chunks": len(chunks),
+                "spam_filtered": spam_count,
+            },
+        )
+
+        # Deduplication
+        chunks = self._deduplicator.deduplicate_chunks(chunks)
+        self._logger.info("Deduplication complete", extra={"unique_chunks": len(chunks)})
+
+        # Ranking phase
+        self._metrics.start_phase("ranking")
+        scored_chunks = self._ranker.rank_chunks(task=task, chunks=chunks, top_k=24)
+        scored_snippets = self._ranker.rank_snippets(task=task, snippets=snippets, top_k=max_code_snippets)
+
+        # Prune weakly related items to reduce off-topic drift in final context.
+        if scored_chunks:
+            top_chunk_score = scored_chunks[0].score
+            min_chunk_score = max(0.18, top_chunk_score * 0.55)
+            scored_chunks = [sc for sc in scored_chunks if sc.score >= min_chunk_score][:24]
+
+        if scored_snippets:
+            top_snippet_score = scored_snippets[0].score
+            min_snippet_score = max(0.20, top_snippet_score * 0.60)
+            scored_snippets = [ss for ss in scored_snippets if ss.score >= min_snippet_score][:max_code_snippets]
+
+        # --- Relevant-context skill: Bucketize into Critical / Helpful / Noise ---
+        bucketized = self._ranker.bucketize(scored_chunks, scored_snippets)
+
+        # Filter docs to only those referenced by critical/helpful sources
+        relevant_sources = {
+            sc.chunk.source for sc in bucketized.critical_chunks
+        } | {
+            sc.chunk.source for sc in bucketized.helpful_chunks
+        } | {
+            ss.snippet.source for ss in bucketized.critical_snippets
+        } | {
+            ss.snippet.source for ss in bucketized.helpful_snippets
+        }
+
+        if relevant_sources:
+            docs = [doc for doc in docs if doc.source in relevant_sources]
+
+        if stackoverflow_answers:
+            stackoverflow_answers = [
+                answer
+                for answer in stackoverflow_answers
+                if max(
+                    self._ranker.compute_semantic_similarity(
+                        task,
+                        f"{answer.question_title} {answer.answer_body[:800]}",
+                    ),
+                    self._text_relevance(
+                        task,
+                        f"{answer.question_title} {answer.answer_body[:800]}",
+                    ),
+                ) >= 0.22
+            ]
+
+        # Calculate avg relevance scores
+        if scored_chunks:
+            avg_chunk_rel = sum(sc.score for sc in scored_chunks) / len(scored_chunks)
+            self._metrics.record("avg_chunk_relevance", avg_chunk_rel)
+        if scored_snippets:
+            avg_snippet_rel = sum(ss.score for ss in scored_snippets) / len(scored_snippets)
+            self._metrics.record("avg_snippet_relevance", avg_snippet_rel)
+
+        self._metrics.record("chunks_ranked", len(scored_chunks))
+        self._metrics.record("code_snippets_ranked", len(scored_snippets))
+        self._metrics.record("critical_chunks", len(bucketized.critical_chunks))
+        self._metrics.record("helpful_chunks", len(bucketized.helpful_chunks))
+        self._metrics.record("critical_snippets", len(bucketized.critical_snippets))
+        self._metrics.record("helpful_snippets", len(bucketized.helpful_snippets))
+        self._metrics.end_phase("ranking")
+
+        # Pattern detection
+        all_snippets = bucketized.critical_snippets + bucketized.helpful_snippets
+        snippet_tuples = [(s.snippet.code, s.snippet.source) for s in all_snippets]
+        patterns = self._pattern_detector.detect_batch(snippet_tuples)
+        self._metrics.record("patterns_detected", len(patterns))
+
+        self._logger.info(
+            "Semantic filtering complete (relevant-context skill)",
+            extra={
+                "critical_chunks": len(bucketized.critical_chunks),
+                "helpful_chunks": len(bucketized.helpful_chunks),
+                "critical_snippets": len(bucketized.critical_snippets),
+                "helpful_snippets": len(bucketized.helpful_snippets),
+                "patterns_detected": len(patterns),
+            },
+        )
+
+        return docs, bucketized, patterns, stackoverflow_answers
+
+    async def _run_llm_synthesis(self, task: str, result: dict) -> None:
+        """Run LLM RAG synthesis and attach guidance to the result dict."""
+        if not self._llm:
+            result["llm_guidance"] = None
+            return
+
+        self._metrics.start_phase("llm_synthesis")
+        self._logger.info("Starting LLM RAG synthesis (relevant-context skill)")
+        llm_response = await self._llm.synthesize(task=task, result=result)
+        self._metrics.end_phase("llm_synthesis")
+
+        if llm_response:
+            result["llm_guidance"] = {
+                "content": llm_response.content,
+                "model": llm_response.model,
+                "tokens_used": llm_response.total_tokens,
+                "finish_reason": llm_response.finish_reason,
+            }
+            self._metrics.record("llm_tokens_used", llm_response.total_tokens)
+            self._logger.info(
+                "LLM synthesis complete",
+                extra={"tokens": llm_response.total_tokens, "model": llm_response.model},
+            )
+        else:
+            result["llm_guidance"] = None
+            self._logger.warning("LLM synthesis returned no result — raw context still available")
 
     async def run(
         self,
@@ -219,7 +377,6 @@ class ContextOrchestrator:
             signals = self._expander.extract_signals(task)
             queries = self._expander.expand(task=task, signals=signals)
             self._metrics.record("queries_generated", len(queries))
-
             self._logger.info("Queries generated", extra={"queries": queries})
 
             # Search phase
@@ -255,9 +412,8 @@ class ContextOrchestrator:
             self._metrics.record("sources_discovered", len(urls))
 
             # Calculate content diversity
-            unique_domains = len(set(self._domain(url) for url in urls))
+            unique_domains = len({self._domain(url) for url in urls})
             self._metrics.record("content_diversity_score", unique_domains / max(1, len(urls)))
-
             self._logger.info("Sources discovered", extra={"count": len(urls), "urls": urls})
 
             # Crawl phase
@@ -266,127 +422,14 @@ class ContextOrchestrator:
             self._metrics.record("pages_scraped", len(pages))
             self._metrics.record("pages_failed", len(urls) - len(pages))
             self._metrics.end_phase("crawl")
-
             self._logger.info("Pages scraped", extra={"count": len(pages)})
 
-            # Extraction phase
-            self._metrics.start_phase("extraction")
-            docs: list[ExtractedDoc] = []
-            snippets: list[ExtractedSnippet] = []
-            chunks = []
-            spam_count = 0
-
-            for page in pages:
-                doc = self._extractor.extract(page)
-                if doc is None:
-                    continue
-                if self._is_seo_spam(f"{doc.title} {doc.summary}"):
-                    spam_count += 1
-                    continue
-                docs.append(doc)
-                snippets.extend(doc.snippets)
-                chunks.extend(self._chunker.chunk_text(text=doc.clean_markdown, source=doc.source))
-
-            self._metrics.record("documents_extracted", len(docs))
-            self._metrics.record("documents_filtered_spam", spam_count)
-            self._metrics.record("code_snippets_extracted", len(snippets))
-            self._metrics.record("chunks_created", len(chunks))
-            self._metrics.end_phase("extraction")
-
-            self._logger.info(
-                "Extraction complete",
-                extra={
-                    "documents": len(docs),
-                    "code_snippets": len(snippets),
-                    "chunks": len(chunks),
-                    "spam_filtered": spam_count,
-                },
-            )
-
-            # Deduplication
-            chunks = self._deduplicator.deduplicate_chunks(chunks)
-            self._logger.info("Deduplication complete", extra={"unique_chunks": len(chunks)})
-
-            # Ranking phase
-            self._metrics.start_phase("ranking")
-            scored_chunks = self._ranker.rank_chunks(task=task, chunks=chunks, top_k=24)
-            scored_snippets = self._ranker.rank_snippets(task=task, snippets=snippets, top_k=max_code_snippets)
-
-            # Prune weakly related items to reduce off-topic drift in final context.
-            if scored_chunks:
-                top_chunk_score = scored_chunks[0].score
-                min_chunk_score = max(0.18, top_chunk_score * 0.55)
-                scored_chunks = [sc for sc in scored_chunks if sc.score >= min_chunk_score][:24]
-
-            if scored_snippets:
-                top_snippet_score = scored_snippets[0].score
-                min_snippet_score = max(0.20, top_snippet_score * 0.60)
-                scored_snippets = [ss for ss in scored_snippets if ss.score >= min_snippet_score][:max_code_snippets]
-
-            # --- Relevant-context skill: Bucketize into Critical / Helpful / Noise ---
-            bucketized = self._ranker.bucketize(scored_chunks, scored_snippets)
-
-            # Filter docs to only those referenced by critical/helpful sources
-            relevant_sources = {
-                sc.chunk.source for sc in bucketized.critical_chunks
-            } | {
-                sc.chunk.source for sc in bucketized.helpful_chunks
-            } | {
-                ss.snippet.source for ss in bucketized.critical_snippets
-            } | {
-                ss.snippet.source for ss in bucketized.helpful_snippets
-            }
-
-            if relevant_sources:
-                docs = [doc for doc in docs if doc.source in relevant_sources]
-
-            if stackoverflow_answers:
-                stackoverflow_answers = [
-                    answer
-                    for answer in stackoverflow_answers
-                    if max(
-                        self._ranker.compute_semantic_similarity(
-                            task,
-                            f"{answer.question_title} {answer.answer_body[:800]}",
-                        ),
-                        self._text_relevance(
-                            task,
-                            f"{answer.question_title} {answer.answer_body[:800]}",
-                        ),
-                    ) >= 0.22
-                ]
-
-            # Calculate avg relevance scores
-            if scored_chunks:
-                avg_chunk_rel = sum(sc.score for sc in scored_chunks) / len(scored_chunks)
-                self._metrics.record("avg_chunk_relevance", avg_chunk_rel)
-            if scored_snippets:
-                avg_snippet_rel = sum(ss.score for ss in scored_snippets) / len(scored_snippets)
-                self._metrics.record("avg_snippet_relevance", avg_snippet_rel)
-
-            self._metrics.record("chunks_ranked", len(scored_chunks))
-            self._metrics.record("code_snippets_ranked", len(scored_snippets))
-            self._metrics.record("critical_chunks", len(bucketized.critical_chunks))
-            self._metrics.record("helpful_chunks", len(bucketized.helpful_chunks))
-            self._metrics.record("critical_snippets", len(bucketized.critical_snippets))
-            self._metrics.record("helpful_snippets", len(bucketized.helpful_snippets))
-            self._metrics.end_phase("ranking")
-
-            # Pattern detection
-            all_snippets = bucketized.critical_snippets + bucketized.helpful_snippets
-            snippet_tuples = [(s.snippet.code, s.snippet.source) for s in all_snippets]
-            patterns = self._pattern_detector.detect_batch(snippet_tuples)
-            self._metrics.record("patterns_detected", len(patterns))
-
-            self._logger.info(
-                "Semantic filtering complete (relevant-context skill)",
-                extra={
-                    "critical_chunks": len(bucketized.critical_chunks),
-                    "helpful_chunks": len(bucketized.helpful_chunks),
-                    "critical_snippets": len(bucketized.critical_snippets),
-                    "helpful_snippets": len(bucketized.helpful_snippets),
-                    "patterns_detected": len(patterns),
-                },
+            # Extract, rank, and bucketize
+            docs, bucketized, patterns, stackoverflow_answers = self._extract_and_rank(
+                task=task,
+                pages=pages,
+                max_code_snippets=max_code_snippets,
+                stackoverflow_answers=stackoverflow_answers,
             )
 
             # --- Format using the relevant-context skill output schema ---
@@ -399,30 +442,8 @@ class ContextOrchestrator:
                 stackoverflow_answers=stackoverflow_answers,
             )
 
-            # LLM RAG synthesis step — pass the full result dict (not just context)
-            if self._llm:
-                self._metrics.start_phase("llm_synthesis")
-                self._logger.info("Starting LLM RAG synthesis (relevant-context skill)")
-                llm_response = await self._llm.synthesize(task=task, result=result)
-                self._metrics.end_phase("llm_synthesis")
-
-                if llm_response:
-                    result["llm_guidance"] = {
-                        "content": llm_response.content,
-                        "model": llm_response.model,
-                        "tokens_used": llm_response.total_tokens,
-                        "finish_reason": llm_response.finish_reason,
-                    }
-                    self._metrics.record("llm_tokens_used", llm_response.total_tokens)
-                    self._logger.info(
-                        "LLM synthesis complete",
-                        extra={"tokens": llm_response.total_tokens, "model": llm_response.model},
-                    )
-                else:
-                    result["llm_guidance"] = None
-                    self._logger.warning("LLM synthesis returned no result — raw context still available")
-            else:
-                result["llm_guidance"] = None
+            # LLM RAG synthesis step
+            await self._run_llm_synthesis(task, result)
 
             # Add metrics to result
             result["metrics"] = self._metrics.to_dict()

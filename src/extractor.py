@@ -105,6 +105,56 @@ class ContentExtractor:
             )
         return refs[:20]
 
+    def _extract_from_html(
+        self, raw: str, page: CrawledPage,
+    ) -> tuple[str, str, list[str], list[ExtractedSnippet]]:
+        """Extract title, markdown, headings, and snippets from an HTML page."""
+        readable = Document(raw)
+        title = readable.short_title() or page.url
+        article_html = readable.summary(html_partial=True)
+        soup = BeautifulSoup(article_html, "html.parser")
+        for tag in soup(["nav", "footer", "script", "style", "noscript", "aside", "form"]):
+            tag.decompose()
+        markdown_text = md(str(soup), heading_style="ATX")
+
+        headings = [self._clean_text(h.get_text(" ")) for h in soup.find_all(re.compile("^h[1-4]$"))]
+        headings = [h for h in headings if h]
+
+        snippets: list[ExtractedSnippet] = []
+        for block in soup.find_all(["pre", "code"]):
+            text = block.get_text("\n")
+            text = text.strip("\n ")
+            if len(text) < 40 or len(text.splitlines()) < 2:
+                continue
+            class_name = " ".join(block.get("class") or [])
+            lang = self._guess_language(class_name, text)
+            snippets.append(
+                ExtractedSnippet(
+                    language=lang,
+                    code=text[:3000],
+                    source=page.url,
+                    description=f"Extracted code block from {title}",
+                    score=1.0,
+                )
+            )
+
+        for fenced in CODE_FENCE_PATTERN.finditer(markdown_text):
+            lang = (fenced.group(1) or "text").strip().lower()
+            code = fenced.group(2).strip()
+            if len(code) < 40 or len(code.splitlines()) < 2:
+                continue
+            snippets.append(
+                ExtractedSnippet(
+                    language=lang or "text",
+                    code=code[:3000],
+                    source=page.url,
+                    description=f"Markdown fenced snippet from {title}",
+                    score=1.0,
+                )
+            )
+
+        return title, markdown_text, headings, snippets
+
     def extract(self, page: CrawledPage) -> ExtractedDoc | None:
         raw = page.text or ""
         if len(raw) < 200:
@@ -112,20 +162,18 @@ class ContentExtractor:
 
         try:
             is_markdown = "markdown" in page.content_type or page.url.endswith(".md")
-            snippets: list[ExtractedSnippet] = []
 
             if is_markdown:
                 title = page.url.rsplit("/", maxsplit=1)[-1] or "README"
                 markdown_text = raw
 
-                # Extract headings directly from markdown syntax
                 headings = [
                     self._clean_text(match.group(2))
                     for match in MD_HEADING_PATTERN.finditer(markdown_text)
                 ]
                 headings = [h for h in headings if h]
 
-                # Extract code snippets from fenced code blocks only
+                snippets: list[ExtractedSnippet] = []
                 for fenced in CODE_FENCE_PATTERN.finditer(markdown_text):
                     lang = (fenced.group(1) or "text").strip().lower()
                     code = fenced.group(2).strip()
@@ -141,52 +189,7 @@ class ContentExtractor:
                         )
                     )
             else:
-                readable = Document(raw)
-                title = readable.short_title() or page.url
-                article_html = readable.summary(html_partial=True)
-                soup = BeautifulSoup(article_html, "html.parser")
-                for tag in soup(["nav", "footer", "script", "style", "noscript", "aside", "form"]):
-                    tag.decompose()
-                markdown_text = md(str(soup), heading_style="ATX")
-
-                headings = [self._clean_text(h.get_text(" ")) for h in soup.find_all(re.compile("^h[1-4]$"))]
-                headings = [h for h in headings if h]
-
-                for block in soup.find_all(["pre", "code"]):
-                    text = block.get_text("\n")
-                    text = text.strip("\n ")
-                    if len(text) < 40 or len(text.splitlines()) < 2:
-                        continue
-                    class_attr = block.get("class")
-                    if class_attr is None:
-                        class_attr = []
-                    class_name = " ".join(class_attr) if isinstance(class_attr, list) else str(class_attr)
-                    lang = self._guess_language(class_name, text)
-                    snippets.append(
-                        ExtractedSnippet(
-                            language=lang,
-                            code=text[:3000],
-                            source=page.url,
-                            description=f"Extracted code block from {title}",
-                            score=1.0,
-                        )
-                    )
-
-                for fenced in CODE_FENCE_PATTERN.finditer(markdown_text):
-                    lang = (fenced.group(1) or "text").strip().lower()
-                    code = fenced.group(2).strip()
-                    if len(code) < 40 or len(code.splitlines()) < 2:
-                        continue
-                    snippets.append(
-                        ExtractedSnippet(
-                            language=lang or "text",
-                            code=code[:3000],
-                            source=page.url,
-                            description=f"Markdown fenced snippet from {title}",
-                            score=1.0,
-                        )
-                    )
-
+                title, markdown_text, headings, snippets = self._extract_from_html(raw, page)
 
             summary = self._clean_text(" ".join(markdown_text.splitlines()[:8]))[:400]
             api_refs = self._extract_api_references(markdown_text, page.url)

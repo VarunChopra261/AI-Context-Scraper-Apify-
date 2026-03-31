@@ -92,69 +92,70 @@ class LLMSynthesizer:
         self._timeout = timeout
         self._max_retries = max_retries
 
-    def build_context_prompt(self, task: str, result: dict) -> str:
-        """Build a structured prompt from the relevant-context skill output.
-
-        Constructs the user message containing the task and all bucketized context,
-        annotating each item with its [CRITICAL] or [HELPFUL] bucket label.
-        The LLM uses these labels to decide what to emphasize in its synthesis.
-        """
-        context = result.get("context", {})
-        parts: list[str] = []
-        parts.append(f"## Developer Task\n\n{task}\n")
-
-        # Inject pre-bucketized relevant context entries
+    @staticmethod
+    def _build_relevant_items_section(result: dict) -> list[str]:
+        """Build the pre-ranked context section."""
         relevant_items = result.get("relevant_context", [])
-        if relevant_items:
-            parts.append("## Pre-Ranked Context (already filtered for relevance)\n")
-            for item in relevant_items[:20]:
-                bucket = item.get("bucket", "").upper()
-                source = item.get("source", "")
-                reason = item.get("why_it_matters", "")
-                detail = item.get("key_detail", "")
-                parts.append(f"[{bucket}] {source}: {reason}\n> {detail}\n")
+        if not relevant_items:
+            return []
+        parts = ["## Pre-Ranked Context (already filtered for relevance)\n"]
+        for item in relevant_items[:20]:
+            bucket = item.get("bucket", "").upper()
+            source = item.get("source", "")
+            reason = item.get("why_it_matters", "")
+            detail = item.get("key_detail", "")
+            parts.append(f"[{bucket}] {source}: {reason}\n> {detail}\n")
+        return parts
 
-        # Add concepts / documentation summaries
+    @staticmethod
+    def _build_concepts_section(context: dict) -> list[str]:
+        """Build the documentation context section."""
         concepts = context.get("concepts", [])
-        if concepts:
-            parts.append("## Documentation Context\n")
-            for concept in concepts[:15]:
-                title = concept.get("title", "")
-                summary = concept.get("summary", "")
-                source = concept.get("source", "")
-                parts.append(f"### {title}\n{summary}\nSource: {source}\n")
+        if not concepts:
+            return []
+        parts = ["## Documentation Context\n"]
+        for concept in concepts[:15]:
+            parts.append(
+                f"### {concept.get('title', '')}\n"
+                f"{concept.get('summary', '')}\n"
+                f"Source: {concept.get('source', '')}\n"
+            )
+        return parts
 
-        # Add code snippets with bucket labels
+    @staticmethod
+    def _build_snippets_section(context: dict) -> list[str]:
+        """Build the code examples section."""
         snippets = context.get("code_snippets", [])
-        if snippets:
-            parts.append("## Code Examples\n")
-            for snippet in snippets[:10]:
-                bucket = snippet.get("bucket", "").upper()
-                lang = snippet.get("language", "text")
-                desc = snippet.get("description", "")
-                code = snippet.get("code", "")[:2000]
-                source = snippet.get("source", "")
-                label = f" [{bucket}]" if bucket else ""
-                parts.append(f"### {desc}{label}\n```{lang}\n{code}\n```\nSource: {source}\n")
+        if not snippets:
+            return []
+        parts = ["## Code Examples\n"]
+        for snippet in snippets[:10]:
+            bucket = snippet.get("bucket", "").upper()
+            lang = snippet.get("language", "text")
+            desc = snippet.get("description", "")
+            code = snippet.get("code", "")[:2000]
+            source = snippet.get("source", "")
+            label = f" [{bucket}]" if bucket else ""
+            parts.append(f"### {desc}{label}\n```{lang}\n{code}\n```\nSource: {source}\n")
+        return parts
 
-        # Add API references
+    @staticmethod
+    def _build_reference_sections(context: dict) -> list[str]:
+        """Build API refs, best practices, and implementation patterns sections."""
+        parts: list[str] = []
+
         api_refs = context.get("api_references", [])
         if api_refs:
             parts.append("## API References\n")
             for ref in api_refs[:10]:
-                fn = ref.get("function", "")
-                desc = ref.get("description", "")
-                parts.append(f"- `{fn}`: {desc}\n")
+                parts.append(f"- `{ref.get('function', '')}`: {ref.get('description', '')}\n")
 
-        # Add best practices
         practices = context.get("best_practices", [])
         if practices:
             parts.append("## Best Practices\n")
             for p in practices[:8]:
-                practice = p.get("practice", "")
-                parts.append(f"- {practice}\n")
+                parts.append(f"- {p.get('practice', '')}\n")
 
-        # Add implementation patterns
         patterns = context.get("implementation_patterns", [])
         if patterns:
             parts.append("## Implementation Patterns\n")
@@ -165,7 +166,13 @@ class LLMSynthesizer:
                 snippet = pattern.get("code_snippet", "")[:800]
                 parts.append(f"### {ptype} (confidence: {confidence})\n{desc}\n```\n{snippet}\n```\n")
 
-        # Add StackOverflow answers
+        return parts
+
+    @staticmethod
+    def _build_community_sections(context: dict, result: dict) -> list[str]:
+        """Build StackOverflow answers and known gaps sections."""
+        parts: list[str] = []
+
         so_answers = context.get("stackoverflow_answers", [])
         if so_answers:
             parts.append("## StackOverflow Answers\n")
@@ -176,12 +183,29 @@ class LLMSynthesizer:
                 score = answer.get("score", 0)
                 parts.append(f"### {q_title} (score: {score})\n{body}\nSource: {q_url}\n")
 
-        # Surface open questions from the formatter
         open_questions = result.get("open_questions", [])
         if open_questions:
             parts.append("## Known Gaps (from pipeline)\n")
             for q in open_questions:
                 parts.append(f"- {q}\n")
+
+        return parts
+
+    def build_context_prompt(self, task: str, result: dict) -> str:
+        """Build a structured prompt from the relevant-context skill output.
+
+        Constructs the user message containing the task and all bucketized context,
+        annotating each item with its [CRITICAL] or [HELPFUL] bucket label.
+        The LLM uses these labels to decide what to emphasize in its synthesis.
+        """
+        context = result.get("context", {})
+        parts: list[str] = [f"## Developer Task\n\n{task}\n"]
+
+        parts.extend(self._build_relevant_items_section(result))
+        parts.extend(self._build_concepts_section(context))
+        parts.extend(self._build_snippets_section(context))
+        parts.extend(self._build_reference_sections(context))
+        parts.extend(self._build_community_sections(context, result))
 
         # Join and truncate to stay within limits
         full_prompt = "\n".join(parts)

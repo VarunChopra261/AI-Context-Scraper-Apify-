@@ -83,7 +83,7 @@ class CacheManager:
                 return None
             if self._is_expired(cached, ttl_seconds):
                 return None
-            return cached
+            return dict(cached)
         except Exception:  # noqa: BLE001, S110
             return None
 
@@ -147,7 +147,7 @@ class CacheManager:
                 return None
             if self._is_expired(cached, ttl_seconds):
                 return None
-            return cached
+            return dict(cached)
         except Exception:  # noqa: BLE001, S110
             return None
 

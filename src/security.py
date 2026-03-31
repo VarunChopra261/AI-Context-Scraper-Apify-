@@ -72,6 +72,23 @@ class InputValidator:
         return task.strip()
 
     @classmethod
+    def _check_hostname_ssrf(cls, hostname: str | None) -> None:
+        """Check that a parsed hostname is not a private/internal address (SSRF)."""
+        if not hostname:
+            return
+        hostname = hostname.lower()
+        if hostname in ("localhost", "localhost.localdomain"):
+            raise SecurityError("Access to internal hosts is forbidden")
+        try:
+            addr = ipaddress.ip_address(hostname)
+            for network in _PRIVATE_NETWORKS:
+                if addr in network:
+                    raise SecurityError("Access to internal hosts is forbidden")
+        except ValueError:
+            # hostname is a DNS name, not a raw IP — that's fine
+            pass
+
+    @classmethod
     def validate_url(cls, url: str) -> str:
         """Validate URL for security issues.
 
@@ -107,21 +124,8 @@ class InputValidator:
             if re.search(pattern, url, re.IGNORECASE):
                 raise SecurityError("URL contains suspicious pattern")
 
-        # Prevent SSRF attempts using proper CIDR checks
-        if parsed.hostname:
-            hostname = parsed.hostname.lower()
-            # Block localhost by name
-            if hostname in ("localhost", "localhost.localdomain"):
-                raise SecurityError("Access to internal hosts is forbidden")
-            # Check against all private IP ranges via ipaddress module
-            try:
-                addr = ipaddress.ip_address(hostname)
-                for network in _PRIVATE_NETWORKS:
-                    if addr in network:
-                        raise SecurityError("Access to internal hosts is forbidden")
-            except ValueError:
-                # hostname is a DNS name, not a raw IP — that's fine
-                pass
+        # Prevent SSRF attempts
+        cls._check_hostname_ssrf(parsed.hostname)
 
         return url
 

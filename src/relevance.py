@@ -76,7 +76,7 @@ class RelevanceRanker:
 
     def compute_semantic_similarity(self, query: str, text: str) -> float:
         """Compute semantic similarity between query and text using embeddings.
-        
+
         Falls back to lexical scoring if embeddings unavailable.
         Returns score in [0.0, 1.0] range.
         """
@@ -107,7 +107,7 @@ class RelevanceRanker:
 
         scored = [
             ScoredChunk(chunk=chunk, score=self._cosine_similarity(task_embedding, embedding))
-            for chunk, embedding in zip(chunks, content_embeddings)
+            for chunk, embedding in zip(chunks, content_embeddings, strict=False)
         ]
         scored.sort(key=lambda item: item.score, reverse=True)
         return scored[:top_k]
@@ -127,7 +127,7 @@ class RelevanceRanker:
         snippet_embeddings = model.encode(texts, convert_to_numpy=True)
 
         scored = []
-        for snippet, embedding in zip(snippets, snippet_embeddings):
+        for snippet, embedding in zip(snippets, snippet_embeddings, strict=False):
             sem_score = self._cosine_similarity(task_embedding, embedding)
             length_bonus = min(0.15, len(snippet.code) / 5000.0)
             snippet_score = sem_score + length_bonus

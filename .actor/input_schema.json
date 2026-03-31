@@ -7,7 +7,8 @@
       "type": "string",
       "title": "Coding task description",
       "description": "Describe the coding problem or implementation goal for which context should be gathered.",
-      "editor": "textfield"
+      "editor": "textfield",
+      "prefill": "Build a Python FastAPI endpoint for file upload to S3"
     },
     "max_sources": {
       "type": "integer",
