@@ -10,6 +10,9 @@
   "input": "./input_schema.json",
   "output": "./output_schema.json",
   "dockerfile": "../Dockerfile",
+  "minMemoryMbytes": 512,
+  "maxMemoryMbytes": 2048,
+  "defaultMemoryMbytes": 1024,
   "environmentVariables": {
     "OPENROUTER_API_KEY": "@openrouter_api_key",
     "GITHUB_TOKEN": "@github_token"

@@ -10,7 +10,7 @@ import httpx
 
 DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
-MAX_CONTEXT_CHARS = 48_000  # Stay well within typical context windows
+MAX_CONTEXT_CHARS = 32_000  # Keep well within context windows and reduce compute cost
 
 
 SYSTEM_PROMPT = """\
@@ -99,7 +99,7 @@ class LLMSynthesizer:
         if not relevant_items:
             return []
         parts = ["## Pre-Ranked Context (already filtered for relevance)\n"]
-        for item in relevant_items[:20]:
+        for item in relevant_items[:15]:
             bucket = item.get("bucket", "").upper()
             source = item.get("source", "")
             reason = item.get("why_it_matters", "")
@@ -114,7 +114,7 @@ class LLMSynthesizer:
         if not concepts:
             return []
         parts = ["## Documentation Context\n"]
-        for concept in concepts[:15]:
+        for concept in concepts[:10]:
             parts.append(
                 f"### {concept.get('title', '')}\n"
                 f"{concept.get('summary', '')}\n"
@@ -129,11 +129,11 @@ class LLMSynthesizer:
         if not snippets:
             return []
         parts = ["## Code Examples\n"]
-        for snippet in snippets[:10]:
+        for snippet in snippets[:6]:
             bucket = snippet.get("bucket", "").upper()
             lang = snippet.get("language", "text")
             desc = snippet.get("description", "")
-            code = snippet.get("code", "")[:2000]
+            code = snippet.get("code", "")[:1500]
             source = snippet.get("source", "")
             label = f" [{bucket}]" if bucket else ""
             parts.append(f"### {desc}{label}\n```{lang}\n{code}\n```\nSource: {source}\n")
@@ -163,7 +163,7 @@ class LLMSynthesizer:
                 ptype = pattern.get("pattern_type", "")
                 desc = pattern.get("description", "")
                 confidence = pattern.get("confidence", 0)
-                snippet = pattern.get("code_snippet", "")[:800]
+                snippet = pattern.get("code_snippet", "")[:600]
                 parts.append(f"### {ptype} (confidence: {confidence})\n{desc}\n```\n{snippet}\n```\n")
 
         return parts
@@ -179,7 +179,7 @@ class LLMSynthesizer:
             for answer in so_answers[:3]:
                 q_title = answer.get("question_title", "")
                 q_url = answer.get("question_url", "")
-                body = answer.get("answer_body", "")[:1500]
+                body = answer.get("answer_body", "")[:1000]
                 score = answer.get("score", 0)
                 parts.append(f"### {q_title} (score: {score})\n{body}\nSource: {q_url}\n")
 
@@ -242,7 +242,7 @@ class LLMSynthesizer:
                 {"role": "user", "content": user_prompt},
             ],
             "temperature": 0.3,
-            "max_tokens": 4096,
+            "max_tokens": 2048,
         }
         headers = {
             "Authorization": f"Bearer {self._api_key}",

@@ -131,7 +131,7 @@ class ContentExtractor:
             snippets.append(
                 ExtractedSnippet(
                     language=lang,
-                    code=text[:3000],
+                    code=text[:2000],
                     source=page.url,
                     description=f"Extracted code block from {title}",
                     score=1.0,
@@ -146,7 +146,7 @@ class ContentExtractor:
             snippets.append(
                 ExtractedSnippet(
                     language=lang or "text",
-                    code=code[:3000],
+                    code=code[:2000],
                     source=page.url,
                     description=f"Markdown fenced snippet from {title}",
                     score=1.0,
@@ -182,7 +182,7 @@ class ContentExtractor:
                     snippets.append(
                         ExtractedSnippet(
                             language=lang or "text",
-                            code=code[:3000],
+                            code=code[:2000],
                             source=page.url,
                             description=f"Markdown fenced snippet from {title}",
                             score=1.0,
@@ -199,7 +199,7 @@ class ContentExtractor:
                 source=page.url,
                 title=title,
                 summary=summary,
-                clean_markdown=markdown_text[:50000],
+                clean_markdown=markdown_text[:30000],
                 headings=headings[:20],
                 snippets=snippets,
                 api_references=api_refs,

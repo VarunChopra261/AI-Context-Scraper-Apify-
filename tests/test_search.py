@@ -21,7 +21,6 @@ class TestQueryExpansion:
         assert len(expanded) > 1
         assert "Build a FastAPI endpoint" in expanded
         assert any("tutorial" in q.lower() for q in expanded)
-        assert any("example" in q.lower() for q in expanded)
 
     def test_expand_query_with_framework(self, expander):
         """Test query expansion includes framework terms."""

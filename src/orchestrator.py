@@ -237,14 +237,14 @@ class ContextOrchestrator:
 
         # Ranking phase
         self._metrics.start_phase("ranking")
-        scored_chunks = self._ranker.rank_chunks(task=task, chunks=chunks, top_k=24)
+        scored_chunks = self._ranker.rank_chunks(task=task, chunks=chunks, top_k=16)
         scored_snippets = self._ranker.rank_snippets(task=task, snippets=snippets, top_k=max_code_snippets)
 
         # Prune weakly related items to reduce off-topic drift in final context.
         if scored_chunks:
             top_chunk_score = scored_chunks[0].score
             min_chunk_score = max(0.18, top_chunk_score * 0.55)
-            scored_chunks = [sc for sc in scored_chunks if sc.score >= min_chunk_score][:24]
+            scored_chunks = [sc for sc in scored_chunks if sc.score >= min_chunk_score][:16]
 
         if scored_snippets:
             top_snippet_score = scored_snippets[0].score
@@ -381,7 +381,7 @@ class ContextOrchestrator:
 
             # Search phase
             self._metrics.start_phase("search")
-            search_results = await self._search.multi_search(queries=queries[:8], per_query=5)
+            search_results = await self._search.multi_search(queries=queries[:5], per_query=4)
 
             github_results = []
             if include_github:

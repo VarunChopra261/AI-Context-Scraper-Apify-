@@ -8,7 +8,9 @@ RUN python -m pip install --no-cache-dir -r requirements.txt
 
 # Pre-download the sentence-transformers model during build so it's baked into
 # the image and doesn't need to be fetched on every cold start (~90MB download).
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+# Then clean up pip/torch caches to keep the image lean.
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')" \
+    && rm -rf /root/.cache/pip /tmp/*
 
 COPY . .
 

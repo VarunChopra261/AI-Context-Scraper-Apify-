@@ -192,8 +192,8 @@ class TestPromptConstruction:
 class TestContextTruncation:
     """Test that context items are limited."""
 
-    def test_concepts_limited_to_15(self, synthesizer):
-        """Test at most 15 concepts included."""
+    def test_concepts_limited_to_10(self, synthesizer):
+        """Test at most 10 concepts included."""
         result = {"context": {
             "concepts": [
                 {"title": f"Concept {i}", "summary": f"Summary {i}", "source": f"https://example.com/{i}"}
@@ -201,11 +201,11 @@ class TestContextTruncation:
             ],
         }}
         prompt = synthesizer.build_context_prompt("test", result)
-        assert "Concept 14" in prompt
-        assert "Concept 15" not in prompt
+        assert "Concept 9" in prompt
+        assert "Concept 10" not in prompt
 
-    def test_snippets_limited_to_10(self, synthesizer):
-        """Test at most 10 code snippets included."""
+    def test_snippets_limited_to_6(self, synthesizer):
+        """Test at most 6 code snippets included."""
         result = {"context": {
             "code_snippets": [
                 {"language": "python", "code": f"code_{i}", "description": f"Snippet {i}", "source": "url"}
@@ -213,8 +213,8 @@ class TestContextTruncation:
             ],
         }}
         prompt = synthesizer.build_context_prompt("test", result)
-        assert "Snippet 9" in prompt
-        assert "Snippet 10" not in prompt
+        assert "Snippet 5" in prompt
+        assert "Snippet 6" not in prompt
 
     def test_so_answers_limited_to_3(self, synthesizer):
         """Test at most 3 stackoverflow answers included."""

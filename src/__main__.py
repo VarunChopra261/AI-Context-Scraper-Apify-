@@ -18,7 +18,7 @@ class ActorInput(BaseModel):
     include_github_code_search: bool = Field(default=True)
     github_token: str | None = Field(default=None)
     github_code_languages: list[str] = Field(default_factory=list)
-    max_code_snippets: int = Field(default=20, ge=1, le=100)
+    max_code_snippets: int = Field(default=10, ge=1, le=100)
     include_stackoverflow: bool = Field(default=True)
     enable_cache: bool = Field(default=True)
     chunk_size: int = Field(default=500, ge=100, le=2000)
