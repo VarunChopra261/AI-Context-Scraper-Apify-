@@ -1,7 +1,8 @@
 """Tests for pattern_detector.py module."""
 
 import pytest
-from src.pattern_detector import PatternDetector, PatternType, ImplementationPattern
+
+from src.pattern_detector import ImplementationPattern, PatternDetector, PatternType
 
 
 @pytest.fixture

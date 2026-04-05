@@ -8,18 +8,16 @@ Run with:  pytest tests/test_regression_live.py -v -m live
 
 from __future__ import annotations
 
-import asyncio
 import logging
 
 import pytest
 
-from src.search import QueryExpander, SearchClient, SearchResult
-from src.crawler import AsyncCrawler, CrawledPage
-from src.extractor import ContentExtractor, ExtractedDoc
 from src.chunker import Chunker
-from src.relevance import RelevanceRanker
+from src.crawler import AsyncCrawler, CrawledPage
 from src.deduplicator import ContentDeduplicator
-
+from src.extractor import ContentExtractor, ExtractedDoc
+from src.relevance import RelevanceRanker
+from src.search import QueryExpander, SearchClient, SearchResult
 
 # ---------------------------------------------------------------------------
 # Fixtures

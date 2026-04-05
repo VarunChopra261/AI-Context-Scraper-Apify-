@@ -1,7 +1,8 @@
 """Tests for search.py module."""
 
 import pytest
-from src.search import QueryExpander, SearchClient, SearchResult, PRIORITY_DOMAINS
+
+from src.search import PRIORITY_DOMAINS, QueryExpander, SearchClient, SearchResult
 
 
 @pytest.fixture

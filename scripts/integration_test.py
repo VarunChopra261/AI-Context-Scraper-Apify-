@@ -28,7 +28,7 @@ async def run_tests():
         chunk_size=500,
         enable_llm_synthesis=bool(openrouter_key),
         openrouter_api_key=openrouter_key,
-        openrouter_model="arcee-ai/trinity-large-preview:free",
+        openrouter_model="nvidia/nemotron-3-super-120b-a12b:free",
     )
 
     test_cases = [

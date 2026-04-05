@@ -1,6 +1,7 @@
 """Tests for chunker.py module."""
 
 import pytest
+
 from src.chunker import Chunker, LLMChunk
 
 

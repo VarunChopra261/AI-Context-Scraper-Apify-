@@ -144,9 +144,9 @@ class RelevanceRanker:
         """Split ranked items into Critical / Helpful / Noise buckets.
 
         Implements the relevant-context skill's ranking step:
-          - Critical (score >= 0.75): the model is likely to fail without it
-          - Helpful  (0.55 <= score < 0.75): improves confidence
-          - Noise    (score < 0.55): discarded entirely
+          - Critical (score >= CRITICAL_THRESHOLD=0.40): the model is likely to fail without it
+          - Helpful  (HELPFUL_THRESHOLD=0.25 <= score < 0.40): improves confidence
+          - Noise    (score < 0.25): discarded entirely
         """
         critical_chunks = [sc for sc in scored_chunks if sc.score >= CRITICAL_THRESHOLD]
         helpful_chunks = [sc for sc in scored_chunks if HELPFUL_THRESHOLD <= sc.score < CRITICAL_THRESHOLD]

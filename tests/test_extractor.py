@@ -1,10 +1,11 @@
 """Tests for extractor.py module."""
 
-import pytest
 from unittest.mock import MagicMock
 
-from src.extractor import ContentExtractor, ExtractedDoc, ExtractedSnippet
+import pytest
+
 from src.crawler import CrawledPage
+from src.extractor import ContentExtractor, ExtractedDoc, ExtractedSnippet
 
 
 def _make_page(html: str, url: str = "https://example.com", content_type: str = "text/html") -> CrawledPage:
@@ -219,7 +220,7 @@ class TestEdgeCases:
         html = "<html><body><p>Unclosed tags<div>Content" + " more text" * 50
         page = _make_page(html)
         # Should not crash
-        doc = extractor.extract(page)
+        _doc = extractor.extract(page)  # noqa: F841
         # May return None or a doc depending on content length
 
     def test_html_with_scripts(self, extractor):

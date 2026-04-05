@@ -1,11 +1,12 @@
 """Tests for formatter.py module."""
 
 import pytest
-from src.formatter import ContextFormatter
-from src.extractor import ExtractedDoc, ExtractedSnippet
+
 from src.chunker import LLMChunk
-from src.relevance import ScoredChunk, ScoredSnippet, BucketizedContext
+from src.extractor import ExtractedDoc, ExtractedSnippet
+from src.formatter import ContextFormatter
 from src.pattern_detector import ImplementationPattern, PatternType
+from src.relevance import BucketizedContext, ScoredChunk, ScoredSnippet
 from src.stackoverflow_miner import StackOverflowAnswer
 
 
@@ -301,7 +302,7 @@ class TestRelevantContextFormatting:
         doc = _make_doc(source="https://docs.com")
         critical_chunk = _make_scored_chunk(text="critical chunk", source="https://docs.com", score=0.9)
         helpful_chunk = _make_scored_chunk(text="helpful chunk", score=0.6)
-        
+
         crit_snip = _make_scored_snippet(code="print('crit')", score=0.85)
         help_snip = _make_scored_snippet(code="print('help')", score=0.65)
 
@@ -334,11 +335,11 @@ class TestRelevantContextFormatting:
         # Verify bucket labels
         context = result["context"]
         assert context["concepts"][0]["title"] == "Test Doc"
-        
+
         assert len(context["code_snippets"]) == 2
         assert context["code_snippets"][0]["bucket"] == "critical"
         assert context["code_snippets"][1]["bucket"] == "helpful"
-        
+
         # Verify questions are lists
         assert isinstance(result["open_questions"], list)
         assert isinstance(result["recommended_next_context"], list)

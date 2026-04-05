@@ -1,8 +1,10 @@
 """Tests for llm_synthesizer.py module."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
-from src.llm_synthesizer import LLMSynthesizer, LLMResponse, SYSTEM_PROMPT, MAX_CONTEXT_CHARS
+
+from src.llm_synthesizer import MAX_CONTEXT_CHARS, SYSTEM_PROMPT, LLMResponse, LLMSynthesizer
 
 
 @pytest.fixture

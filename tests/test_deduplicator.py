@@ -1,7 +1,9 @@
 """Tests for deduplicator.py module."""
 
-import pytest
 from dataclasses import dataclass
+
+import pytest
+
 from src.deduplicator import ContentDeduplicator, ContentFingerprint
 
 
