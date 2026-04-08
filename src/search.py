@@ -152,17 +152,17 @@ class SearchClient:
             return []
 
     async def multi_search(self, queries: list[str], per_query: int = 5) -> list[SearchResult]:
-        # Rate-limit DDG queries: max 2 concurrent, 1s delay between each to avoid
-        # DuckDuckGo's aggressive rate-limiter which blocks concurrent requests.
-        sem = asyncio.Semaphore(2)
+        # Rate-limit DDG queries strictly. 
+        # DuckDuckGo's aggressive rate-limiter blocks concurrent and rapid requests.
+        sem = asyncio.Semaphore(1)
         results_by_query: list[list[SearchResult]] = []
 
         async def _rate_limited_search(query: str) -> list[SearchResult]:
             async with sem:
+                # Sleep INSIDE the semaphore to enforce a genuine delay between outgoing requests
+                await asyncio.sleep(1.5)
                 result = await self.search(query=query, max_results=per_query)
-            # Sleep OUTSIDE the semaphore so other queries can proceed while we throttle
-            await asyncio.sleep(1.0)
-            return result
+                return result
 
         tasks = [_rate_limited_search(q) for q in queries]
         results_by_query = await asyncio.gather(*tasks)

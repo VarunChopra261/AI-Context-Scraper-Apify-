@@ -27,9 +27,9 @@ class AsyncCrawler:
         self,
         logger,
         timeout: float = 10.0,
-        max_concurrency: int = 8,
+        max_concurrency: int = 20,
         retries: int = 1,
-        requests_per_second: float = 3.0,
+        requests_per_second: float = 20.0,
     ) -> None:
         self._logger = logger
         self._timeout = timeout
