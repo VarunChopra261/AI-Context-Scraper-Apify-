@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import time
-from typing import Any
+from typing import Any, cast
 
 from apify import Actor
 
@@ -114,7 +114,7 @@ class CacheManager:
                 return None
             key = self._cache_key("emb", text[:500])  # Use first 500 chars
             cached = await kvs.get_value(key)
-            return cached if cached else None
+            return cast("list[float]", cached) if cached else None
         except Exception:  # noqa: BLE001, S110
             return None
 

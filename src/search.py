@@ -152,7 +152,7 @@ class SearchClient:
             return []
 
     async def multi_search(self, queries: list[str], per_query: int = 5) -> list[SearchResult]:
-        # Rate-limit DDG queries strictly. 
+        # Rate-limit DDG queries strictly.
         # DuckDuckGo's aggressive rate-limiter blocks concurrent and rapid requests.
         sem = asyncio.Semaphore(1)
         results_by_query: list[list[SearchResult]] = []

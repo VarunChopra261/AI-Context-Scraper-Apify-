@@ -44,9 +44,17 @@ test_output_utf8.json
 test_fail_output.txt
 test_unit_output.txt
 test_live_output.txt
+test_final.txt
+test_results_full.txt
 results.json
-build_0.1.7_results.json
+build_*.json
 integration_test.log
+actor_run_output.txt
+
+# Lint / type-check one-off outputs
+mypy_results.txt
+mypy_verify.txt
+ruff_results.txt
 
 # Temp actor inputs
 .actor/tmp_input.json
