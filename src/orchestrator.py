@@ -365,7 +365,7 @@ class ContextOrchestrator:
             config_hash = hashlib.sha256(
                 f"{max_sources}|{allowed_domains}|{include_github}|{max_code_snippets}"
                 f"|{include_github_code_search}|{github_code_languages}"
-                f"|{include_stackoverflow}".encode()
+                f"|{include_stackoverflow}|{self._chunker._max_tokens}".encode()
             ).hexdigest()
             cached_result = await self._cache.get_task_result(task, config_hash)
             if cached_result:

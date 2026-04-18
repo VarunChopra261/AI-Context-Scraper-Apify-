@@ -1,11 +1,11 @@
 """Stress tests for extractor.py — every assertion is unconditional."""
 
-import pytest
 from unittest.mock import MagicMock
+
+import pytest
 
 from src.crawler import CrawledPage
 from src.extractor import ContentExtractor, ExtractedDoc, ExtractedSnippet
-
 
 # ---------------------------------------------------------------------------
 # Helpers

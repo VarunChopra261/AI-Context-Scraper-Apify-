@@ -35,19 +35,26 @@ class ContentDeduplicator:
     def _create_shingle_hashes(self, text: str) -> frozenset[int]:
         """Create hashed word-level shingles from text.
 
-        Uses integer hashes of shingles instead of storing full strings to
-        reduce memory usage significantly for large documents.
+        Uses deterministic SHA-256-derived 64-bit integers instead of Python's
+        built-in hash() which is randomized per-process (PYTHONHASHSEED).
+        This ensures fingerprints are consistent across restarts and processes.
         """
         normalized = self._normalize_text(text)
         words = normalized.split()
 
+        def _stable_hash(s: str) -> int:
+            """Deterministic 64-bit integer derived from SHA-256."""
+            digest = hashlib.sha256(s.encode()).digest()
+            # Take first 8 bytes as a big-endian unsigned 64-bit int
+            return int.from_bytes(digest[:8], byteorder="big")
+
         if len(words) < self._shingle_size:
-            return frozenset({hash(normalized)})
+            return frozenset({_stable_hash(normalized)})
 
         shingle_hashes: set[int] = set()
         for i in range(len(words) - self._shingle_size + 1):
             shingle = " ".join(words[i : i + self._shingle_size])
-            shingle_hashes.add(hash(shingle))
+            shingle_hashes.add(_stable_hash(shingle))
 
         return frozenset(shingle_hashes)
 

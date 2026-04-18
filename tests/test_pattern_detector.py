@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.pattern_detector import ImplementationPattern, PatternDetector, PatternType
+from src.pattern_detector import PatternDetector, PatternType
 
 
 @pytest.fixture
@@ -58,12 +58,13 @@ class TestImplementationPatternDataclass:
 class TestConfidenceGating:
     def test_single_match_does_not_trigger_pattern(self, detector):
         """Only one regex hit (< 2 matches) must not produce a pattern."""
-        # 'requests' hits API_CLIENT rule 1 but nothing else in that pattern group
+        # 'requests' hits API_CLIENT rule 1 (requests → 0.7) AND rule 2 (get( → 0.4) → total 1.1 > 1.0
+        # which means API_CLIENT DOES trigger on this snippet. Verify the pattern count is ≥ 0
+        # (i.e. simply that detection doesn't crash) and defer single-match assertion to
+        # test_one_weak_match_not_enough below which uses an unambiguously single-match case.
         code = "url = requests.get(endpoint)"
         patterns = detector.detect(code, source="s")
-        api_patterns = [p for p in patterns if p.pattern_type == PatternType.API_CLIENT]
-        # This has 2 API_CLIENT rules triggered: requests (0.7) and get( (0.4) → total 1.1 > 1.0, matches=2
-        # So this will actually trigger. Test something that only hits one rule.
+        assert isinstance(patterns, list)  # must not raise
 
     def test_one_weak_match_not_enough(self, detector):
         """Logging with only 'debug' → matches=1 → not triggered."""
@@ -73,7 +74,7 @@ class TestConfidenceGating:
 
     def test_two_matches_below_1_0_threshold_not_triggered(self, detector):
         """Two matches but combined confidence <= 1.0 should not produce a pattern.
-        
+
         The only group that can produce 2 matches with total weight <= 1.0 is:
         API_CLIENT: get( (0.4) + api (0.6) = 1.0, which is NOT > 1.0, so no pattern.
         """

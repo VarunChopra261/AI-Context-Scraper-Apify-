@@ -9,7 +9,6 @@ from src.pattern_detector import ImplementationPattern, PatternType
 from src.relevance import BucketizedContext, ScoredChunk, ScoredSnippet
 from src.stackoverflow_miner import StackOverflowAnswer
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

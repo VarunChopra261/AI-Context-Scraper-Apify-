@@ -119,6 +119,10 @@ class InputValidator:
                 f"URL scheme '{parsed.scheme}' not allowed. Must be one of: {cls.ALLOWED_SCHEMES}"
             )
 
+        # Reject URLs with missing or empty hostname (e.g. "http:///path")
+        if not parsed.hostname:
+            raise SecurityError("URL must have a valid hostname")
+
         # Check for suspicious patterns
         for pattern in cls.SUSPICIOUS_PATTERNS:
             if re.search(pattern, url, re.IGNORECASE):

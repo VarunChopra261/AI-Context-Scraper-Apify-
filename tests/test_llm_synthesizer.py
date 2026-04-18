@@ -6,7 +6,6 @@ import pytest
 
 from src.llm_synthesizer import MAX_CONTEXT_CHARS, SYSTEM_PROMPT, LLMResponse, LLMSynthesizer
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -20,13 +19,13 @@ def _make_logger():
 
 
 def _make_synthesizer(**kwargs):
-    defaults = dict(
-        logger=_make_logger(),
-        api_key="sk-or-v1-test-key-only",
-        model="test/model",
-        timeout=10.0,
-        max_retries=1,
-    )
+    defaults = {
+        "logger": _make_logger(),
+        "api_key": "sk-or-v1-test-key-only",
+        "model": "test/model",
+        "timeout": 10.0,
+        "max_retries": 1,
+    }
     defaults.update(kwargs)
     return LLMSynthesizer(**defaults)
 
@@ -425,7 +424,6 @@ class TestRetryLogic:
     @pytest.mark.asyncio
     async def test_retries_on_429_then_succeeds(self):
         """On a 429, the synthesizer should retry and eventually succeed."""
-        import httpx
         s = _make_synthesizer(max_retries=1)
 
         success_response = MagicMock()
@@ -451,18 +449,18 @@ class TestRetryLogic:
                 return r
             return success_response
 
-        with patch("src.llm_synthesizer.httpx.AsyncClient") as MockClient:
-            with patch("src.llm_synthesizer.asyncio.sleep", new_callable=AsyncMock):
-                instance = AsyncMock()
-                instance.post = mock_post
-                instance.__aenter__ = AsyncMock(return_value=instance)
-                instance.__aexit__ = AsyncMock(return_value=False)
-                MockClient.return_value = instance
-                result = await s.synthesize("task", {})
-                # Should have retried and succeeded
-                assert result is not None
-                assert result.content == "Retry worked!"
-                assert call_count == 2
+        with patch("src.llm_synthesizer.httpx.AsyncClient") as MockClient, \
+                patch("src.llm_synthesizer.asyncio.sleep", new_callable=AsyncMock):
+            instance = AsyncMock()
+            instance.post = mock_post
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = instance
+            result = await s.synthesize("task", {})
+            # Should have retried and succeeded
+            assert result is not None
+            assert result.content == "Retry worked!"
+            assert call_count == 2
 
     @pytest.mark.asyncio
     async def test_exhausts_retries_returns_none(self):
