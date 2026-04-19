@@ -10,7 +10,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in AI Context Scraper, please report it by emailing **security@example.com**.
+If you discover a security vulnerability in AI Context Scraper, please report it by emailing **late120872@gmail.com**.
 
 Please **DO NOT** open a public issue for security vulnerabilities.
 
@@ -127,9 +127,7 @@ Please **DO NOT** open a public issue for security vulnerabilities.
 
 ## Security Contacts
 
-- **Security Team**: security@example.com
-- **Maintainer**: maintainer@example.com
-- **Emergency**: +1-XXX-XXX-XXXX
+- **Maintainer**: late120872@gmail.com
 
 ## Acknowledgments
 
