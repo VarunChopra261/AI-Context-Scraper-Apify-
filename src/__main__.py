@@ -25,6 +25,7 @@ class ActorInput(BaseModel):
     enable_llm_synthesis: bool = Field(default=True, description="Enable LLM-powered RAG synthesis")
     openrouter_api_key: str | None = Field(default=None, description="OpenRouter API key for LLM synthesis")
     openrouter_model: str = Field(default="nvidia/nemotron-3-super-120b-a12b:free", description="OpenRouter model ID")
+    proxyConfiguration: dict | None = Field(default=None, description="Apify Proxy configuration")
 
 
 async def main() -> None:
@@ -35,6 +36,10 @@ async def main() -> None:
         except ValidationError as exc:
             Actor.log.error("Invalid input", extra={"errors": exc.errors()})
             raise
+
+        # Setup proxy URL if configured
+        proxy_config = await Actor.create_proxy_configuration(actor_input.proxyConfiguration)
+        proxy_url = await proxy_config.new_url() if proxy_config else None
 
         # Security validation
         try:
@@ -63,6 +68,7 @@ async def main() -> None:
             enable_llm_synthesis=actor_input.enable_llm_synthesis,
             openrouter_api_key=openrouter_key,
             openrouter_model=actor_input.openrouter_model,
+            proxy_url=proxy_url,
         )
         result = await orchestrator.run(
             task=validated_task,

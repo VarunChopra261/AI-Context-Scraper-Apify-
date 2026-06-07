@@ -30,6 +30,7 @@ class AsyncCrawler:
         max_concurrency: int = 20,
         retries: int = 1,
         requests_per_second: float = 20.0,
+        proxy_url: str | None = None,
     ) -> None:
         self._logger = logger
         self._timeout = timeout
@@ -40,6 +41,7 @@ class AsyncCrawler:
         self._rate_lock = asyncio.Lock()
         self._robots_cache: dict[str, RobotFileParser | None] = {}
         self._user_agent = "ai-context-scraper-actor/1.0 (+https://apify.com)"
+        self._proxy_url = proxy_url
 
     async def _throttle(self) -> None:
         async with self._rate_lock:
@@ -126,7 +128,11 @@ class AsyncCrawler:
             "Accept": "text/html,application/xhtml+xml,application/xml,text/markdown;q=0.9,*/*;q=0.8",
         }
 
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True, headers=headers) as client:
+        # Configure proxy for the client if provided
+        proxy = self._proxy_url if self._proxy_url else None
+        async with httpx.AsyncClient(
+            timeout=timeout, follow_redirects=True, headers=headers, proxy=proxy
+        ) as client:
             tasks = [self._fetch_one(client=client, url=url) for url in urls]
             crawled = await asyncio.gather(*tasks)
 

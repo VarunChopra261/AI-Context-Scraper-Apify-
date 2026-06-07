@@ -6,6 +6,9 @@ RUN python -m pip install --no-cache-dir --upgrade pip
 COPY requirements.txt ./
 RUN python -m pip install --no-cache-dir -r requirements.txt
 
+# Set the Hugging Face cache directory to a writable directory inside the app workspace
+ENV HF_HOME=/usr/src/app/.cache/huggingface
+
 # Pre-download the sentence-transformers model during build so it's baked into
 # the image and doesn't need to be fetched on every cold start (~90MB download).
 # Then clean up pip/torch caches to keep the image lean.

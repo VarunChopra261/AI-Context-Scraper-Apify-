@@ -107,8 +107,9 @@ class QueryExpander:
 
 
 class SearchClient:
-    def __init__(self, logger) -> None:
+    def __init__(self, logger, proxy_url: str | None = None) -> None:
         self._logger = logger
+        self._proxy_url = proxy_url
 
     @staticmethod
     def _domain_boost(url: str) -> float:
@@ -121,7 +122,7 @@ class SearchClient:
     async def search(self, query: str, max_results: int = 8) -> list[SearchResult]:
         def _run() -> list[SearchResult]:
             output: list[SearchResult] = []
-            ddgs = DDGS()
+            ddgs = DDGS(proxy=self._proxy_url)
             for item in ddgs.text(query, max_results=max_results):
                 url = item.get("href") or item.get("url") or ""
                 if not url:

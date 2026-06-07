@@ -107,6 +107,15 @@
       "description": "Model ID to use for LLM synthesis via OpenRouter.",
       "editor": "textfield",
       "default": "nvidia/nemotron-3-super-120b-a12b:free"
+    },
+    "proxyConfiguration": {
+      "type": "object",
+      "title": "Proxy configuration",
+      "description": "Select proxies to be used by the actor.",
+      "editor": "proxy",
+      "default": {
+        "useApifyProxy": true
+      }
     }
   },
   "required": [

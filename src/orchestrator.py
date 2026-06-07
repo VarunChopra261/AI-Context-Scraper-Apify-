@@ -35,13 +35,14 @@ class ContextOrchestrator:
         enable_llm_synthesis: bool = True,
         openrouter_api_key: str | None = None,
         openrouter_model: str = "nvidia/nemotron-3-super-120b-a12b:free",
+        proxy_url: str | None = None,
     ) -> None:
         self._logger = logger
         self._expander = QueryExpander()
-        self._search = SearchClient(logger=logger)
+        self._search = SearchClient(logger=logger, proxy_url=proxy_url)
         self._github = GitHubMiner(logger=logger, github_token=github_token)
         self._stackoverflow = StackOverflowMiner(logger=logger) if enable_stackoverflow else None
-        self._crawler = AsyncCrawler(logger=logger)
+        self._crawler = AsyncCrawler(logger=logger, proxy_url=proxy_url)
         self._extractor = ContentExtractor(logger=logger)
         self._chunker = Chunker(max_tokens=chunk_size)
         self._ranker = RelevanceRanker(logger=logger)
